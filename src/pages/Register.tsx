@@ -45,7 +45,10 @@ export default function Register() {
 
     try {
       await register({ username, email, phone, password });
-      navigate('/community/join');
+      const { isAuthenticated } = useAuthStore.getState();
+      if (isAuthenticated) {
+        navigate('/community/join');
+      }
     } catch {
       // error is set in store
     }

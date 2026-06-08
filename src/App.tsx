@@ -13,6 +13,8 @@ import CommunityJoinPage from '@/pages/CommunityJoin';
 import ProfilePage from '@/pages/Profile';
 import TransactionsPage from '@/pages/Transactions';
 import WithdrawPage from '@/pages/Withdraw';
+import DepositPage from '@/pages/Deposit';
+import AccountSettingsPage from '@/pages/AccountSettings';
 import LeaderboardPage from '@/pages/Leaderboard';
 import MessagesPage from '@/pages/Messages';
 import AdminDashboardPage from '@/pages/admin/Dashboard';
@@ -57,6 +59,8 @@ export default function App() {
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/transactions" element={<TransactionsPage />} />
             <Route path="/profile/withdraw" element={<WithdrawPage />} />
+            <Route path="/profile/deposit" element={<DepositPage />} />
+            <Route path="/profile/settings" element={<AccountSettingsPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
             <Route path="/messages" element={<MessagesPage />} />
             <Route

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, MapPin, DollarSign, Clock } from 'lucide-react';
+import { ArrowLeft, MapPin, DollarSign, Clock, AlertTriangle } from 'lucide-react';
 import { CATEGORY_LABELS } from '@/components/TaskCard';
 import { useTaskStore } from '@/stores/taskStore';
 import type { TaskCategory } from '@/types';
@@ -56,6 +56,7 @@ export default function TaskNew() {
   const [lat, setLat] = useState(39.9042);
   const [lng, setLng] = useState(116.4074);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   const handlePickLocation = (newLat: number, newLng: number) => {
     setLat(newLat);
@@ -65,6 +66,7 @@ export default function TaskNew() {
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim() || !reward) return;
     setSubmitting(true);
+    setErrorMsg('');
     try {
       await createTask({
         title: title.trim(),
@@ -79,7 +81,8 @@ export default function TaskNew() {
         longitude: lng,
       });
       navigate('/tasks');
-    } catch {
+    } catch (err: any) {
+      setErrorMsg(err?.message || '发布失败，请检查信息后重试');
       setSubmitting(false);
     }
   };
@@ -251,6 +254,13 @@ export default function TaskNew() {
             </div>
           </div>
         </div>
+
+        {errorMsg && (
+          <div className="bg-red-50 text-red-600 text-sm rounded-xl px-4 py-3 border border-red-100 flex items-start gap-2">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         <div className="flex gap-3 pb-8">
           <button
