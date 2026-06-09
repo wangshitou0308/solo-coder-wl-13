@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, Users, MapPin, Search, Ticket, Navigation } from 'lucide-react';
 import { useCommunityStore } from '@/stores/communityStore';
+import { toast } from '@/lib/toast';
 
 const MOCK_COMMUNITIES = [
   { id: 1, name: '阳光花园社区', address: '朝阳区阳光花园路88号', member_count: 326, latitude: 39.92, longitude: 116.46 },
@@ -21,6 +22,12 @@ export default function CommunityJoin() {
 
   const displayCommunities = communities.length > 0 ? communities : MOCK_COMMUNITIES;
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   const handleInviteJoin = async () => {
     clearError();
     setLocalError('');
@@ -30,6 +37,7 @@ export default function CommunityJoin() {
     }
     try {
       await joinByInviteCode(inviteCode.trim());
+      toast.success('加入社区成功');
       navigate('/tasks');
     } catch {
       // error is set in store
@@ -42,6 +50,7 @@ export default function CommunityJoin() {
     setJoiningId(communityId);
     try {
       await joinByLocation(communityId);
+      toast.success('加入社区成功');
       navigate('/tasks');
     } catch {
       // error is set in store

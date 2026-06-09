@@ -88,6 +88,13 @@ func (r *MessageRepo) MarkAsRead(conversationID, userID uint) error {
 		Update("read", true).Error
 }
 
+func (r *MessageRepo) FindConversationByTaskID(userID, taskID uint) (*models.Conversation, error) {
+	var conv models.Conversation
+	err := r.db.Where("task_id = ? AND (user1_id = ? OR user2_id = ?)", taskID, userID, userID).
+		First(&conv).Error
+	return &conv, err
+}
+
 func (r *MessageRepo) GetUnreadCount(userID uint) (int64, error) {
 	var count int64
 	err := r.db.Model(&models.Message{}).

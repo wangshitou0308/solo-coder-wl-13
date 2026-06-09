@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserPlus, User, Mail, Phone, KeyRound, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { toast } from '@/lib/toast';
 
 function getPasswordStrength(pwd: string): { level: number; label: string; color: string } {
   if (!pwd) return { level: 0, label: '', color: '' };
@@ -29,6 +30,12 @@ export default function Register() {
 
   const strength = useMemo(() => getPasswordStrength(password), [password]);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
@@ -45,9 +52,14 @@ export default function Register() {
 
     try {
       await register({ username, email, phone, password });
-      const { isAuthenticated } = useAuthStore.getState();
-      if (isAuthenticated) {
-        navigate('/community/join');
+      const state = useAuthStore.getState();
+      if (state.isAuthenticated) {
+        toast.success('注册成功');
+        if (state.user?.community_id) {
+          navigate('/tasks');
+        } else {
+          navigate('/community/join');
+        }
       }
     } catch {
       // error is set in store

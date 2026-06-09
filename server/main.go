@@ -63,7 +63,7 @@ func main() {
 	transactionRepo := repositories.NewTransactionRepo(db)
 
 	authService := services.NewAuthService(userRepo, cfg)
-	taskService := services.NewTaskService(taskRepo, userRepo, transactionRepo, reviewRepo)
+	taskService := services.NewTaskService(db, taskRepo, userRepo, transactionRepo, reviewRepo)
 	communityService := services.NewCommunityService(communityRepo, userRepo)
 	messageService := services.NewMessageService(messageRepo)
 	paymentService := services.NewPaymentService(userRepo, transactionRepo)

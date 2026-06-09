@@ -79,6 +79,45 @@ func (cc *CommunityController) JoinByLocation(c *gin.Context) {
 	utils.Success(c, community)
 }
 
+func (cc *CommunityController) Join(c *gin.Context) {
+	var req services.JoinRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	userID := c.GetUint("user_id")
+	community, err := cc.communityService.Join(userID, req)
+	if err != nil {
+		utils.Error(c, 400, err.Error())
+		return
+	}
+
+	utils.Success(c, community)
+}
+
+func (cc *CommunityController) JoinByLocationNew(c *gin.Context) {
+	var req services.JoinByLocationNewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.BadRequest(c, err.Error())
+		return
+	}
+
+	if req.CommunityID == 0 && (req.Latitude == 0 || req.Longitude == 0) {
+		utils.BadRequest(c, "community_id or latitude/longitude is required")
+		return
+	}
+
+	userID := c.GetUint("user_id")
+	community, err := cc.communityService.JoinByLocationNew(userID, req)
+	if err != nil {
+		utils.Error(c, 400, err.Error())
+		return
+	}
+
+	utils.Success(c, community)
+}
+
 func (cc *CommunityController) GetMembers(c *gin.Context) {
 	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

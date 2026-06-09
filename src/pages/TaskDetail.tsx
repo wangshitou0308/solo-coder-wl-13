@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Clock, MapPin, DollarSign, MessageSquare, Star, Check, X, AlertTriangle,
-  ArrowLeft, Send,
+  ArrowLeft, Send, Shield,
 } from 'lucide-react';
 import { useTaskStore } from '@/stores/taskStore';
 import { useChatStore } from '@/stores/chatStore';
 import { useAuthStore } from '@/stores/authStore';
 import { CATEGORY_LABELS } from '@/components/TaskCard';
+import { toast } from '@/lib/toast';
 import type { Review, ChatMessage } from '@/types';
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -111,24 +112,113 @@ export default function TaskDetail() {
   const publisherAvatar = currentTask.publisher_avatar || currentTask.publisher?.avatar || `https://api.dicebear.com/7.x/initials/svg?seed=${currentTask.publisher_id}`;
   const publisherName = currentTask.publisher_name || currentTask.publisher?.username || `用户${currentTask.publisher_id}`;
 
+  const isAdmin = currentUser?.role === 'community_admin' || currentUser?.role === 'platform_admin';
+  const adminReviewed = (currentTask as any).admin_reviewed !== false;
+  const isParticipant = isPublisher || isClaimer;
+  const canSeeContactInfo = isParticipant || isAdmin;
+
   const handleClaim = async () => {
     setSubmitting(true);
-    try { await claimTask(taskId); } finally { setSubmitting(false); }
+    try {
+      await claimTask(taskId);
+      toast.success('认领成功，请尽快完成任务');
+    } catch (e: any) {
+      const msg = e?.message || '';
+      if (msg.includes('claimed by someone else') || msg.includes('已被其他人')) {
+        toast.warning('手慢了，任务已被其他人认领');
+        fetchTaskById(taskId);
+      } else {
+        toast.error(msg || '认领失败');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleComplete = async () => {
     setSubmitting(true);
-    try { await completeTask(taskId); } finally { setSubmitting(false); }
+    try {
+      await completeTask(taskId);
+      toast.success('已标记完成，等待发布者验收');
+    } catch (e: any) {
+      toast.error(e?.message || '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleConfirm = async () => {
     setSubmitting(true);
-    try { await confirmTask(taskId); } finally { setSubmitting(false); }
+    try {
+      await confirmTask(taskId);
+      toast.success('验收通过，感谢您的信任');
+    } catch (e: any) {
+      toast.error(e?.message || '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!confirm('确认验收不通过？此操作会取消任务并说明原因。')) return;
+    setSubmitting(true);
+    try {
+      await cancelTask(taskId, '验收不通过');
+      toast.success('已拒绝验收');
+    } catch (e: any) {
+      toast.error(e?.message || '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = async () => {
+    if (!confirm('确认取消此任务吗？')) return;
     setSubmitting(true);
-    try { await cancelTask(taskId); } finally { setSubmitting(false); }
+    try {
+      await cancelTask(taskId);
+      toast.success('任务已取消');
+    } catch (e: any) {
+      toast.error(e?.message || '操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleAdminReview = async (approved: boolean) => {
+    setSubmitting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/v1/admin/tasks/${taskId}/review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ approved }),
+      });
+      const data = await res.json();
+      if (data.code === 0) {
+        toast.success(approved ? '审核通过' : '已驳回');
+        fetchTaskById(taskId);
+      } else {
+        toast.error(data.message || '操作失败');
+      }
+    } catch {
+      toast.error('操作失败');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const maskPhone = (phone?: string) => {
+    if (!phone) return '';
+    return phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2');
+  };
+
+  const maskEmail = (email?: string) => {
+    if (!email) return '';
+    const [name, domain] = email.split('@');
+    if (!name || !domain) return email;
+    if (name.length <= 2) return name + '***@' + domain;
+    return name.slice(0, 2) + '***@' + domain;
   };
 
   const handleSend = () => {
@@ -140,18 +230,30 @@ export default function TaskDetail() {
   const handleSubmitReview = async () => {
     if (!reviewRating) return;
     const token = localStorage.getItem('token');
+    const revieweeId = isPublisher ? currentTask.claimer_id : currentTask.publisher_id;
     try {
       const res = await fetch(`/api/v1/tasks/${taskId}/review`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+        body: JSON.stringify({ rating: reviewRating, comment: reviewComment, reviewee_id: revieweeId }),
       });
       const data = await res.json();
-      setExistingReview(data.data || data);
-      setReviewRating(0);
-      setReviewComment('');
-    } catch { /* ignored */ }
+      if (data.code === 0 || data.id) {
+        toast.success('评价提交成功');
+        setExistingReview(data.data || data);
+        setReviewRating(0);
+        setReviewComment('');
+      } else {
+        toast.error(data.message || '评价失败');
+      }
+    } catch {
+      toast.error('评价失败');
+    }
   };
+
+  const reviewTargetName = isPublisher
+    ? (currentTask.claimer_name || currentTask.claimer?.username || `用户${currentTask.claimer_id}`)
+    : publisherName;
 
   const formatTime = (t: string) => {
     if (!t) return '';
@@ -187,12 +289,21 @@ export default function TaskDetail() {
                   {catLabel}
                 </span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <DollarSign className="w-4 h-4 text-orange-500" />
-                <span className="text-orange-600 font-bold text-lg">¥{currentTask.reward}</span>
-                <span className="text-gray-400 text-xs">
-                  {currentTask.reward_type === 'credit' ? '虚拟积分' : '现金'}
-                </span>
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-orange-500" />
+                  <span className="text-orange-600 font-bold text-lg">
+                    ¥{currentTask.reward + (currentTask.bounty || 0)}
+                  </span>
+                  <span className="text-gray-400 text-xs">
+                    {currentTask.reward_type === 'credit' || currentTask.reward_type === 'fixed' ? '虚拟积分' : '现金'}
+                  </span>
+                </div>
+                {currentTask.bounty && currentTask.bounty > 0 && (
+                  <div className="text-xs text-gray-500 ml-6">
+                    基础 ¥{currentTask.reward} + 赏金加成 ¥{currentTask.bounty}
+                  </div>
+                )}
               </div>
             </div>
             <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
@@ -231,9 +342,75 @@ export default function TaskDetail() {
                     信用 {currentTask.publisher?.credit_score || 100}
                   </span>
                 </div>
+                {currentTask.publisher && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="text-gray-400">📧</span>
+                      {canSeeContactInfo
+                        ? currentTask.publisher.email
+                        : maskEmail(currentTask.publisher.email)}
+                      {!canSeeContactInfo && (
+                        <span className="text-orange-500 ml-1">(认领后可见)</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="text-gray-400">📱</span>
+                      {canSeeContactInfo
+                        ? currentTask.publisher.phone
+                        : maskPhone(currentTask.publisher.phone)}
+                      {!canSeeContactInfo && (
+                        <span className="text-orange-500 ml-1">(认领后可见)</span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
+
+          {isClaimer && currentTask.claimer && (
+            <div className="bg-white rounded-xl shadow-sm border border-orange-50 p-6">
+              <div className="flex items-center gap-3">
+                <img
+                  src={
+                    currentTask.claimer_avatar ||
+                    currentTask.claimer?.avatar ||
+                    `https://api.dicebear.com/7.x/initials/svg?seed=${currentTask.claimer_id}`
+                  }
+                  alt=""
+                  className="w-12 h-12 rounded-full bg-orange-100"
+                />
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900">
+                    {currentTask.claimer_name || currentTask.claimer?.username || `用户${currentTask.claimer_id}`}
+                    <span className="ml-2 text-xs bg-green-50 text-green-600 px-2 py-0.5 rounded-full">
+                      任务承接者
+                    </span>
+                  </h3>
+                  <div className="flex items-center gap-3 text-sm text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Star className="w-3 h-3 text-orange-400 fill-orange-400" />
+                      信用 {currentTask.claimer?.credit_score || 100}
+                    </span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="text-gray-400">📧</span>
+                      {canSeeContactInfo
+                        ? currentTask.claimer.email
+                        : maskEmail(currentTask.claimer.email)}
+                    </p>
+                    <p className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="text-gray-400">📱</span>
+                      {canSeeContactInfo
+                        ? currentTask.claimer.phone
+                        : maskPhone(currentTask.claimer.phone)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {currentTask.status === 'pending' && !isPublisher && (
             <button
@@ -258,7 +435,7 @@ export default function TaskDetail() {
           )}
 
           {currentTask.status === 'completed' && isPublisher && (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <button
                 onClick={handleConfirm}
                 disabled={submitting}
@@ -266,6 +443,14 @@ export default function TaskDetail() {
               >
                 <Check className="w-5 h-5" />
                 确认验收
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={submitting}
+                className="w-full py-3 rounded-lg bg-red-500 hover:bg-red-600 text-white font-bold text-lg shadow-sm transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <X className="w-5 h-5" />
+                拒绝验收
               </button>
             </div>
           )}
@@ -281,11 +466,73 @@ export default function TaskDetail() {
             </button>
           )}
 
+          {isAdmin && !adminReviewed && currentTask.status === 'pending' && (
+            <div className="bg-yellow-50/70 rounded-xl border border-yellow-200 p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-yellow-100 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">审核面板</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">作为管理员审核此任务是否合规</p>
+                </div>
+              </div>
+              <div className="bg-white/60 rounded-lg p-3 space-y-2 text-xs text-gray-600">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">任务ID</span>
+                  <span className="font-mono text-gray-700">#{taskId}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">发布者</span>
+                  <span className="text-gray-700">{publisherName}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">任务类别</span>
+                  <span className="text-gray-700">{catLabel}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-400">悬赏金额</span>
+                  <span className="text-orange-600 font-semibold">¥{currentTask.reward}</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => handleAdminReview(false)}
+                  disabled={submitting}
+                  className="py-2.5 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  <X className="w-4 h-4" />
+                  {submitting ? '处理中...' : '驳回'}
+                </button>
+                <button
+                  onClick={() => handleAdminReview(true)}
+                  disabled={submitting}
+                  className="py-2.5 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  {submitting ? '处理中...' : '审核通过'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {isAdmin && adminReviewed && (
+            <div className="bg-green-50/70 rounded-xl border border-green-200 p-4 flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                <Shield className="w-4 h-4 text-green-600" />
+              </div>
+              <div className="text-sm">
+                <span className="font-medium text-green-700">已审核</span>
+                <span className="text-gray-500 ml-2">此任务已通过管理员审核</span>
+              </div>
+            </div>
+          )}
+
           {currentTask.status === 'confirmed' && (
             <div className="bg-white rounded-xl shadow-sm border border-orange-50 p-6">
               <h2 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <Star className="w-5 h-5 text-orange-400" />
-                评价
+                评价{existingReview ? '' : ` · 评价 ${reviewTargetName}`}
               </h2>
               {existingReview ? (
                 <div>

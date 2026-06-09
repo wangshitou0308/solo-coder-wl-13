@@ -10,9 +10,17 @@ const TYPE_LABELS: Record<string, string> = {
   deposit: '充值',
   service_fee: '服务费',
   refund: '退款',
+  freeze: '余额冻结',
+  unfreeze: '余额解冻',
+  income: '收入',
+  expense: '支出',
+  bounty_income: '赏金加成',
+  bounty_expense: '支付赏金加成',
+  penalty: '违约金',
+  admin_adjust: '平台调整',
 };
 
-const INCOME_TYPES = new Set(['reward_income', 'deposit', 'refund']);
+const INCOME_TYPES = new Set(['reward_income', 'deposit', 'refund', 'unfreeze', 'income', 'bounty_income']);
 const FILTER_TABS = ['全部', '收入', '支出'] as const;
 
 export default function Transactions() {

@@ -119,14 +119,23 @@ export default function Profile() {
       </div>
 
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-sm p-6 text-white">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-orange-100 text-sm">当前余额</p>
             <p className="text-3xl font-bold mt-1">¥{user?.balance?.toFixed(2) ?? '0.00'}</p>
           </div>
           <Wallet size={40} className="text-orange-200 opacity-60" />
         </div>
-        <div className="flex gap-3 mt-5">
+        {user?.frozen_balance != null && user.frozen_balance > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl px-4 py-2.5 mb-4">
+            <div className="flex items-center justify-between">
+              <span className="text-orange-100 text-sm">冻结余额</span>
+              <span className="font-semibold">¥{user.frozen_balance.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-orange-200/80 mt-1">任务进行中暂不可用的金额</p>
+          </div>
+        )}
+        <div className="flex gap-3">
           <button
             onClick={() => navigate('/profile/deposit')}
             className="flex-1 flex items-center justify-center gap-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-xl py-2.5 text-sm font-medium transition-colors"

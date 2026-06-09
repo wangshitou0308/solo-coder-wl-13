@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { LogIn, Phone, Mail, KeyRound } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
+import { toast } from '@/lib/toast';
 
 type LoginMode = 'phone' | 'email';
 
@@ -14,6 +15,12 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
 
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
@@ -21,9 +28,14 @@ export default function Login() {
       ? { phone, password }
       : { email, password };
     await login(payload);
-    const { isAuthenticated } = useAuthStore.getState();
-    if (isAuthenticated) {
-      navigate('/community/join');
+    const state = useAuthStore.getState();
+    if (state.isAuthenticated) {
+      toast.success('登录成功');
+      if (state.user?.community_id) {
+        navigate('/tasks');
+      } else {
+        navigate('/community/join');
+      }
     }
   };
 

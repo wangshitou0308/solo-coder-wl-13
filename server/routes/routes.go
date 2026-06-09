@@ -45,6 +45,8 @@ func SetupRouter(
 		{
 			authCommunities.POST("/join/code", communityCtrl.JoinByCode)
 			authCommunities.POST("/join/location", communityCtrl.JoinByLocation)
+			authCommunities.POST("/join", communityCtrl.Join)
+			authCommunities.POST("/join-by-location", communityCtrl.JoinByLocationNew)
 		}
 	}
 
@@ -71,6 +73,7 @@ func SetupRouter(
 	{
 		messages.GET("/conversations", messageCtrl.ListConversations)
 		messages.GET("/conversations/:id", messageCtrl.ListMessages)
+		messages.GET("/conversations/:id/messages", messageCtrl.ListMessagesAlias)
 		messages.POST("/send", messageCtrl.Send)
 		messages.GET("/unread", messageCtrl.UnreadCount)
 	}

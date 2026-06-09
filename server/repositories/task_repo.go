@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"math"
+	"time"
 
 	"github.com/neighbortask/server/models"
 	"gorm.io/gorm"
@@ -129,4 +130,20 @@ func (r *TaskRepo) GetRatingRanking(communityID uint, limit int) ([]map[string]i
 		Limit(limit).
 		Find(&results).Error
 	return results, err
+}
+
+func (r *TaskRepo) ClaimWithOptimisticLock(taskID, claimerID uint, version int) (bool, error) {
+	now := time.Now()
+	result := r.db.Model(&models.Task{}).
+		Where("id = ? AND status = ? AND version = ?", taskID, models.TaskStatusPending, version).
+		Updates(map[string]interface{}{
+			"status":     models.TaskStatusClaimed,
+			"claimer_id": claimerID,
+			"claimed_at": now,
+			"version":    gorm.Expr("version + 1"),
+		})
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
 }

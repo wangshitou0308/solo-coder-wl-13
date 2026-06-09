@@ -31,7 +31,7 @@ interface TaskState {
   claimTask: (id: number) => Promise<void>;
   completeTask: (id: number) => Promise<void>;
   confirmTask: (id: number, rating?: number, comment?: string) => Promise<void>;
-  cancelTask: (id: number) => Promise<void>;
+  cancelTask: (id: number, reason?: string) => Promise<void>;
   setFilter: (filters: Partial<TaskFilters>) => void;
   setSortBy: (sortBy: string) => void;
   setCategory: (category: string) => void;
@@ -106,7 +106,14 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
   },
 
   createTask: async (data: Partial<Task>) => {
-    const res = await api.post<Task>('/tasks', data);
+    const submitData = { ...data };
+    if ('address' in submitData && submitData.address !== undefined && !('location_address' in submitData)) {
+      (submitData as any).location_address = submitData.address;
+    }
+    if ('location_address' in submitData && (submitData as any).location_address !== undefined && !('address' in submitData)) {
+      (submitData as any).address = (submitData as any).location_address;
+    }
+    const res = await api.post<Task>('/tasks', submitData);
     if (res.code === 0 && res.data) {
       set((state) => ({ tasks: [res.data!, ...state.tasks] }));
       return res.data;
@@ -137,9 +144,23 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
   },
 
   confirmTask: async (id: number, rating?: number, comment?: string) => {
-    const res = await api.post<Task>(`/tasks/${id}/confirm`, { rating, comment });
-    if (res.code !== 0) {
-      throw new Error(res.message || '确认任务失败');
+    const hasReview = rating !== undefined || comment !== undefined;
+    const confirmRes = await api.post<Task>(`/tasks/${id}/confirm`);
+    if (confirmRes.code !== 0) {
+      throw new Error(confirmRes.message || '确认任务失败');
+    }
+    if (hasReview) {
+      const { currentTask } = get();
+      const reviewBody: { rating?: number; comment?: string; reviewee_id?: number } = { rating, comment };
+      const taskForReview = currentTask?.id === id ? currentTask : null;
+      if (taskForReview) {
+        reviewBody.reviewee_id = taskForReview.claimer_id || taskForReview.publisher_id;
+      }
+      try {
+        await api.post(`/tasks/${id}/review`, reviewBody);
+      } catch {
+        // ignore review error, task confirmed already
+      }
     }
     set((state) => ({
       tasks: state.tasks.map((t) => (t.id === id ? { ...t, status: 'confirmed' as const } : t)),
@@ -147,8 +168,8 @@ export const useTaskStore = create<TaskState>()((set, get) => ({
     }));
   },
 
-  cancelTask: async (id: number) => {
-    const res = await api.post<Task>(`/tasks/${id}/cancel`);
+  cancelTask: async (id: number, reason?: string) => {
+    const res = await api.post<Task>(`/tasks/${id}/cancel`, reason ? { reason } : undefined);
     if (res.code !== 0) {
       throw new Error(res.message || '取消任务失败');
     }

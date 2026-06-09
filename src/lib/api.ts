@@ -1,6 +1,15 @@
 import type { ApiResponse } from '@/types';
+import { toast } from './toast';
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+const SILENT_ERROR_PATHS = new Set([
+  '/auth/me',
+  '/auth/refresh',
+]);
+
+const shouldShowToast = (path: string) => {
+  return !SILENT_ERROR_PATHS.has(path) && !path.startsWith('/auth/refresh');
+};
 
 let isRefreshing = false;
 let refreshSubscribers: Array<(token: string) => void> = [];
@@ -98,6 +107,11 @@ async function request<T>(
   }
 
   const json: ApiResponse<T> = await response.json();
+  
+  if (json.code !== 0 && json.message && shouldShowToast(path)) {
+    toast.error(json.message);
+  }
+  
   return json;
 }
 

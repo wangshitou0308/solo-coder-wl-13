@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, ChevronDown, Search } from 'lucide-react';
 import TaskCard from '@/components/TaskCard';
 import { CATEGORY_LABELS } from '@/components/TaskCard';
+import { SkeletonCard } from '@/components/Skeleton';
 import { useTaskStore } from '@/stores/taskStore';
 
 const CATEGORY_FILTERS: { key: string; label: string }[] = [
@@ -11,25 +12,6 @@ const CATEGORY_FILTERS: { key: string; label: string }[] = [
 ];
 
 const SORT_OPTIONS = ['最新发布', '赏金最高', '距离最近', '即将截止'];
-
-function SkeletonCard() {
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-orange-50 p-4 animate-pulse">
-      <div className="flex items-center justify-between mb-3">
-        <div className="h-5 w-16 bg-orange-100 rounded-full" />
-        <div className="h-5 w-10 bg-gray-100 rounded-full" />
-      </div>
-      <div className="h-4 bg-gray-100 rounded mb-2 w-3/4" />
-      <div className="h-4 bg-gray-100 rounded mb-3 w-1/2" />
-      <div className="h-6 bg-orange-100 rounded mb-3 w-20" />
-      <div className="h-3 bg-gray-100 rounded mb-2 w-2/3" />
-      <div className="flex items-center gap-2 pt-2 border-t border-orange-50">
-        <div className="w-6 h-6 bg-gray-100 rounded-full" />
-        <div className="h-3 bg-gray-100 rounded w-16" />
-      </div>
-    </div>
-  );
-}
 
 export default function TaskHall() {
   const navigate = useNavigate();
@@ -91,16 +73,19 @@ export default function TaskHall() {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonCard key={i} />
-            ))}
-          </div>
+          <SkeletonCard count={6} />
         ) : tasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-gray-400">
             <Search className="w-16 h-16 mb-4 opacity-50" />
             <p className="text-lg font-medium">暂无任务</p>
             <p className="text-sm mt-1">当前分类下还没有任务，快来发布第一个吧</p>
+            <button
+              onClick={() => navigate('/tasks/new')}
+              className="mt-6 flex items-center gap-2 px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200"
+            >
+              <Plus className="w-4 h-4" />
+              发布第一个任务
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

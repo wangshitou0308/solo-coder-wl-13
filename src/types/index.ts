@@ -9,6 +9,7 @@ export interface User {
   role: 'user' | 'community_admin' | 'platform_admin';
   credit_score: number;
   balance: number;
+  frozen_balance?: number;
   latitude: number;
   longitude: number;
   created_at: string;
@@ -41,13 +42,16 @@ export interface Task {
   description: string;
   category: TaskCategory;
   reward: number;
-  reward_type: 'credit' | 'cash';
+  reward_type: 'fixed' | 'credit' | 'cash';
+  bounty?: number;
   urgency: 'low' | 'normal' | 'high' | 'urgent';
   deadline: string;
   status: 'pending' | 'claimed' | 'completed' | 'confirmed' | 'cancelled';
   latitude: number;
   longitude: number;
   address: string;
+  location_address?: string;
+  version?: number;
   created_at: string;
   updated_at: string;
   review?: Review;
@@ -61,6 +65,7 @@ export type TaskCategory = 'delivery' | 'pet' | 'repair' | 'medical' | 'tutor' |
 
 export interface Review {
   id: number;
+  /** 与 reviewer_id 联合唯一 */
   task_id: number;
   reviewer_id: number;
   reviewee_id: number;
@@ -95,8 +100,10 @@ export interface Transaction {
   user_id: number;
   task_id: number;
   task_title?: string;
-  type: 'reward_income' | 'reward_expense' | 'withdraw' | 'deposit' | 'service_fee' | 'refund';
+  type: 'reward_income' | 'reward_expense' | 'withdraw' | 'deposit' | 'service_fee' | 'refund' | 'freeze' | 'unfreeze' | 'income' | 'expense' | 'bounty_income' | 'bounty_expense' | 'penalty' | 'admin_adjust' | 'payment' | 'credit_add';
   amount: number;
+  balance_after?: number;
+  description?: string;
   status: 'completed' | 'pending' | 'failed';
   created_at: string;
 }
@@ -156,6 +163,7 @@ export interface PaginatedResponse<T> {
   total: number;
   page: number;
   page_size: number;
+  per_page?: number;
 }
 
 export interface LoginPayload {

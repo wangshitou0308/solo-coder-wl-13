@@ -106,7 +106,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   },
 
   fetchMessages: async (taskId: number) => {
-    const res = await api.get<Message[]>(`/messages?task_id=${taskId}`);
+    const res = await api.get<Message[]>(`/messages/conversations/${taskId}/messages`);
     if (res.code === 0 && res.data) {
       const list = Array.isArray(res.data) ? res.data : [res.data];
       set({ messages: list });

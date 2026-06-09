@@ -21,9 +21,20 @@ type JoinByCodeRequest struct {
 }
 
 type JoinByLocationRequest struct {
-	Latitude  float64 `json:"latitude" binding:"required"`
-	Longitude float64 `json:"longitude" binding:"required"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
 	Radius    float64 `json:"radius"`
+}
+
+type JoinRequest struct {
+	InviteCode string `json:"invite_code" binding:"required"`
+}
+
+type JoinByLocationNewRequest struct {
+	CommunityID uint    `json:"community_id"`
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	Radius      float64 `json:"radius"`
 }
 
 func (s *CommunityService) List(page, perPage int) ([]models.Community, int64, error) {
@@ -99,6 +110,51 @@ func (s *CommunityService) JoinByLocation(userID uint, req JoinByLocationRequest
 	s.userRepo.UpdateCommunity(userID, &community.ID)
 
 	return community, nil
+}
+
+func (s *CommunityService) Join(userID uint, req JoinRequest) (*models.Community, error) {
+	codeReq := JoinByCodeRequest{InviteCode: req.InviteCode}
+	return s.JoinByCode(userID, codeReq)
+}
+
+func (s *CommunityService) JoinByID(userID, communityID uint) (*models.Community, error) {
+	community, err := s.communityRepo.FindByID(communityID)
+	if err != nil {
+		return nil, errors.New("community not found")
+	}
+
+	isMember, err := s.communityRepo.IsMember(community.ID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if isMember {
+		return nil, errors.New("already a member")
+	}
+
+	member := &models.CommunityMember{
+		CommunityID: community.ID,
+		UserID:      userID,
+	}
+	if err := s.communityRepo.AddMember(member); err != nil {
+		return nil, err
+	}
+
+	s.communityRepo.IncrementMemberCount(community.ID)
+	s.userRepo.UpdateCommunity(userID, &community.ID)
+
+	return community, nil
+}
+
+func (s *CommunityService) JoinByLocationNew(userID uint, req JoinByLocationNewRequest) (*models.Community, error) {
+	if req.CommunityID > 0 {
+		return s.JoinByID(userID, req.CommunityID)
+	}
+	locReq := JoinByLocationRequest{
+		Latitude:  req.Latitude,
+		Longitude: req.Longitude,
+		Radius:    req.Radius,
+	}
+	return s.JoinByLocation(userID, locReq)
 }
 
 func (s *CommunityService) GetMembers(communityID uint, page, perPage int) ([]models.CommunityMember, int64, error) {

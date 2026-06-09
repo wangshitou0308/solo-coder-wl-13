@@ -32,17 +32,21 @@ export const useAuthStore = create<AuthState>()(
       login: async (payload: { phone?: string; email?: string; password: string }) => {
         set({ loading: true, error: null });
         try {
-          const account = payload.phone || payload.email || '';
-          const res = await api.post<{ user: User; tokens: { access_token: string; refresh_token: string } }>(
+          const res = await api.post<
+            | { user: User; tokens: { access_token: string; refresh_token: string } }
+            | { user: User; token: string; refresh_token: string }
+          >(
             '/auth/login',
-            { account, password: payload.password }
+            { phone: payload.phone, email: payload.email, password: payload.password }
           );
           if (res.code === 0 && res.data) {
-            localStorage.setItem('token', res.data.tokens.access_token);
-            localStorage.setItem('refreshToken', res.data.tokens.refresh_token);
+            const accessToken = 'tokens' in res.data ? res.data.tokens.access_token : res.data.token;
+            const refreshToken = 'tokens' in res.data ? res.data.tokens.refresh_token : res.data.refresh_token;
+            localStorage.setItem('token', accessToken);
+            localStorage.setItem('refreshToken', refreshToken);
             set({
-              token: res.data.tokens.access_token,
-              refreshToken: res.data.tokens.refresh_token,
+              token: accessToken,
+              refreshToken: refreshToken,
               user: res.data.user,
               isAuthenticated: true,
               loading: false,
@@ -58,16 +62,21 @@ export const useAuthStore = create<AuthState>()(
       register: async (payload: { username: string; email: string; phone: string; password: string }) => {
         set({ loading: true, error: null });
         try {
-          const res = await api.post<{ user: User; tokens: { access_token: string; refresh_token: string } }>(
+          const res = await api.post<
+            | { user: User; tokens: { access_token: string; refresh_token: string } }
+            | { user: User; token: string; refresh_token: string }
+          >(
             '/auth/register',
             payload
           );
           if (res.code === 0 && res.data) {
-            localStorage.setItem('token', res.data.tokens.access_token);
-            localStorage.setItem('refreshToken', res.data.tokens.refresh_token);
+            const accessToken = 'tokens' in res.data ? res.data.tokens.access_token : res.data.token;
+            const refreshToken = 'tokens' in res.data ? res.data.tokens.refresh_token : res.data.refresh_token;
+            localStorage.setItem('token', accessToken);
+            localStorage.setItem('refreshToken', refreshToken);
             set({
-              token: res.data.tokens.access_token,
-              refreshToken: res.data.tokens.refresh_token,
+              token: accessToken,
+              refreshToken: refreshToken,
               user: res.data.user,
               isAuthenticated: true,
               loading: false,

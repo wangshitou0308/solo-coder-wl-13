@@ -71,6 +71,10 @@ func (s *MessageService) ListMessages(conversationID, userID uint, page, perPage
 	return messages, total, nil
 }
 
+func (s *MessageService) GetConversationByTaskID(userID, taskID uint) (*models.Conversation, error) {
+	return s.messageRepo.FindConversationByTaskID(userID, taskID)
+}
+
 func (s *MessageService) GetUnreadCount(userID uint) (int64, error) {
 	return s.messageRepo.GetUnreadCount(userID)
 }

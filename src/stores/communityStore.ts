@@ -74,7 +74,7 @@ export const useCommunityStore = create<CommunityState>()((set) => ({
   joinByLocation: async (communityId: number) => {
     set({ loading: true, error: null });
     try {
-      const res = await api.post<Community>(`/communities/${communityId}/join`);
+      const res = await api.post<Community>('/communities/join-by-location', { community_id: communityId });
       if (res.code !== 0) {
         set({ error: res.message || '加入社区失败', loading: false });
         throw new Error(res.message || '加入社区失败');

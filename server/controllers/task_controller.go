@@ -56,6 +56,19 @@ func (tc *TaskController) List(c *gin.Context) {
 		return
 	}
 
+	pageSizeStr := c.Query("page_size")
+	perPageStr := c.Query("per_page")
+	if pageSizeStr != "" {
+		if ps, err := strconv.Atoi(pageSizeStr); err == nil {
+			filter.PageSize = ps
+		}
+	}
+	if perPageStr != "" {
+		if pp, err := strconv.Atoi(perPageStr); err == nil {
+			filter.PerPage = pp
+		}
+	}
+
 	tasks, total, err := tc.taskService.List(filter)
 	if err != nil {
 		utils.InternalError(c, err.Error())
@@ -169,7 +182,7 @@ func (tc *TaskController) SubmitReview(c *gin.Context) {
 	}
 
 	var body struct {
-		RevieweeID uint   `json:"reviewee_id" binding:"required"`
+		RevieweeID uint   `json:"reviewee_id"`
 		Rating     int    `json:"rating" binding:"required,min=1,max=5"`
 		Comment    string `json:"comment"`
 	}
@@ -179,8 +192,31 @@ func (tc *TaskController) SubmitReview(c *gin.Context) {
 	}
 
 	userID := c.GetUint("user_id")
+	taskID := uint(id)
 
-	review, err := tc.taskService.SubmitReview(uint(id), userID, body.RevieweeID, body.Rating, body.Comment)
+	revieweeID := body.RevieweeID
+	if revieweeID == 0 {
+		task, err := tc.taskService.GetByID(taskID)
+		if err != nil {
+			utils.NotFound(c, "task not found")
+			return
+		}
+		if userID == task.PublisherID {
+			if task.ClaimerID != nil {
+				revieweeID = *task.ClaimerID
+			} else {
+				utils.Error(c, 400, "task has no claimer")
+				return
+			}
+		} else if task.ClaimerID != nil && userID == *task.ClaimerID {
+			revieweeID = task.PublisherID
+		} else {
+			utils.Error(c, 400, "only task participants can submit review")
+			return
+		}
+	}
+
+	review, err := tc.taskService.SubmitReview(taskID, userID, revieweeID, body.Rating, body.Comment)
 	if err != nil {
 		utils.Error(c, 400, err.Error())
 		return
